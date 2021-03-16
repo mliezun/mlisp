@@ -1,5 +1,5 @@
 mlisp: outdirs
-	gcc -std=c99 -Wall main.c -ledit -o build/mlisp
+	gcc -std=c99 -Wall main.c mpc.c -ledit -lm -o build/mlisp
 
 outdirs:
 	mkdir -p build/ bin/
