@@ -830,6 +830,49 @@ lval *builtin_eq(lenv *e, lval *a) { return builtin_cmp(e, a, "=="); }
 
 lval *builtin_ne(lenv *e, lval *a) { return builtin_cmp(e, a, "!="); }
 
+lval *builtin_bool(lenv *e, lval *a, char *func) {
+  LASSERT(a, a->count >= 2,
+          "Boolean operation '%s' takes at least 2 arguments.", func);
+
+  int isAnd = (strcmp(func, "&&") == 0);
+  int r = (isAnd ? 1 : 0);
+
+  for (int i = 0; i < a->count; i++) {
+    a->cell[i] = lval_eval(e, a->cell[i]);
+    LASSERT_TYPE(func, a, i, LVAL_NUM);
+    if (isAnd) {
+      if (!a->cell[i]->num) {
+        r = 0;
+        break;
+      }
+    } else {
+      if (a->cell[i]->num) {
+        r = 1;
+        break;
+      }
+    }
+  }
+
+  lval_del(a);
+
+  return lval_num(r);
+}
+
+lval *builtin_and(lenv *e, lval *a) { return builtin_bool(e, a, "&&"); }
+
+lval *builtin_or(lenv *e, lval *a) { return builtin_bool(e, a, "||"); }
+
+lval *builtin_not(lenv *e, lval *a) {
+  LASSERT_NUM("!", a, 1);
+  a = lval_eval(e, a);
+  LASSERT(a, a->type == LVAL_NUM,
+          "Function '%s' passed incorrect type. Got %s, Expected %s.", "!",
+          ltype_name(a->type), LVAL_NUM);
+  int r = !a->num;
+  lval_del(a);
+  return lval_num(r);
+}
+
 lval *builtin_if(lenv *e, lval *a) {
   LASSERT_NUM("if", a, 3);
   LASSERT_TYPE("if", a, 0, LVAL_NUM);
@@ -1037,6 +1080,9 @@ void lenv_add_builtins(lenv *e) {
   lenv_add_builtin(e, ">=", builtin_gte);
   lenv_add_builtin(e, "==", builtin_eq);
   lenv_add_builtin(e, "!=", builtin_ne);
+  lenv_add_builtin(e, "&&", builtin_and);
+  lenv_add_builtin(e, "||", builtin_or);
+  lenv_add_builtin(e, "!", builtin_not);
   lenv_add_builtin(e, "if", builtin_if);
 }
 
@@ -1051,7 +1097,7 @@ int main(int argc, char **argv) {
 
   mpca_lang(MPCA_LANG_DEFAULT, "                        \
         number : /-?[0-9]+/ ;                           \
-    symbol : /[a-zA-Z0-9_+\\-*\\/\\\\=<>!&]+/ ;         \
+    symbol : /[a-zA-Z0-9_+\\-*\\/\\\\=<>!&|]+/ ;         \
     sexpr  : '(' <expr>* ')' ;                          \
     qexpr  : '{' <expr>* '}' ;                          \
     expr   : <number> | <symbol> | <sexpr> | <qexpr> ;  \
