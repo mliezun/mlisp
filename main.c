@@ -698,6 +698,36 @@ lval *builtin_lambda(lenv *e, lval *a) {
   return lval_lambda(formals, body);
 }
 
+lval *builtin_fun(lenv *e, lval *a) {
+  LASSERT_NUM("fun", a, 2);
+  for (int i = 0; i < a->count; i++) {
+    LASSERT_TYPE("fun", a, i, LVAL_QEXPR);
+  }
+
+  lval *argList = builtin_list(e, lval_sexpr());
+
+  lval *nameArgs = lval_pop(a, 0);
+  lval *body = lval_pop(a, 0);
+
+  lval_add(argList, nameArgs);
+
+  lval *name = builtin_head(e, lval_copy(argList));
+  lval *args = builtin_tail(e, argList);
+
+  lval *lamb = builtin_list(e, lval_sexpr());
+  lamb = lval_add(lamb, args);
+  lamb = lval_add(lamb, body);
+  lamb = builtin_lambda(e, lamb);
+
+  lval *fun = builtin_list(e, lval_sexpr());
+  fun = lval_add(fun, name);
+  fun = lval_add(fun, lamb);
+  fun = builtin_def(e, fun);
+
+  lval_del(a);
+  return fun;
+}
+
 lval *lval_call(lenv *e, lval *f, lval *a) {
 
   /* If Builtin then simply apply that */
@@ -872,6 +902,7 @@ void lenv_add_builtins(lenv *e) {
   lenv_add_builtin(e, "def", builtin_def);
   lenv_add_builtin(e, "=", builtin_put);
   lenv_add_builtin(e, "\\", builtin_lambda);
+  lenv_add_builtin(e, "fun", builtin_fun);
 }
 
 int main(int argc, char **argv) {
