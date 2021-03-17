@@ -700,11 +700,17 @@ lval *builtin_lambda(lenv *e, lval *a) {
 
 lval *builtin_fun(lenv *e, lval *a) {
   LASSERT_NUM("fun", a, 2);
-  for (int i = 0; i < a->count; i++) {
-    LASSERT_TYPE("fun", a, i, LVAL_QEXPR);
+  LASSERT_TYPE("fun", a, 0, LVAL_QEXPR);
+  LASSERT_TYPE("fun", a, 1, LVAL_QEXPR);
+
+  /* Check first Q-Expression contains only Symbols */
+  for (int i = 0; i < a->cell[0]->count; i++) {
+    LASSERT(a, (a->cell[0]->cell[i]->type == LVAL_SYM),
+            "Cannot define non-symbol. Got %s, Expected %s.",
+            ltype_name(a->cell[0]->cell[i]->type), ltype_name(LVAL_SYM));
   }
 
-  lval *argList = builtin_list(e, lval_sexpr());
+  lval *argList = lval_qexpr();
 
   lval *nameArgs = lval_pop(a, 0);
   lval *body = lval_pop(a, 0);
@@ -714,12 +720,12 @@ lval *builtin_fun(lenv *e, lval *a) {
   lval *name = builtin_head(e, lval_copy(argList));
   lval *args = builtin_tail(e, argList);
 
-  lval *lamb = builtin_list(e, lval_sexpr());
+  lval *lamb = lval_qexpr();
   lamb = lval_add(lamb, args);
   lamb = lval_add(lamb, body);
   lamb = builtin_lambda(e, lamb);
 
-  lval *fun = builtin_list(e, lval_sexpr());
+  lval *fun = lval_qexpr();
   fun = lval_add(fun, name);
   fun = lval_add(fun, lamb);
   fun = builtin_def(e, fun);
