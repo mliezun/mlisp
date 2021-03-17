@@ -702,6 +702,7 @@ lval *builtin_fun(lenv *e, lval *a) {
   LASSERT_NUM("fun", a, 2);
   LASSERT_TYPE("fun", a, 0, LVAL_QEXPR);
   LASSERT_TYPE("fun", a, 1, LVAL_QEXPR);
+  LASSERT(a, a->cell[0]->count != 0, "Function name is required.");
 
   /* Check first Q-Expression contains only Symbols */
   for (int i = 0; i < a->cell[0]->count; i++) {
