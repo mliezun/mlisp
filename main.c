@@ -1263,8 +1263,28 @@ void repl(lenv *e) {
   }
 }
 
-int main(int argc, char **argv) {
+extern const char _binary_stdlib_mlisp_end[];
+extern const char _binary_stdlib_mlisp_start[];
 
+int init_stdlib(lenv *e) {
+  /* Attempt to Parse the user Input */
+  mpc_result_t r;
+  if (mpc_nparse("<stdlib>", _binary_stdlib_mlisp_start,
+                 _binary_stdlib_mlisp_end - _binary_stdlib_mlisp_start, Mlisp,
+                 &r)) {
+    lval *x = lval_eval(e, lval_read(r.output));
+    lval_del(x);
+    mpc_ast_delete(r.output);
+  } else {
+    /* Otherwise Print the Error */
+    mpc_err_print(r.error);
+    mpc_err_delete(r.error);
+    return 1;
+  }
+  return 0;
+}
+
+int main(int argc, char **argv) {
   Number = mpc_new("number");
   Symbol = mpc_new("symbol");
   String = mpc_new("string");
@@ -1289,6 +1309,12 @@ int main(int argc, char **argv) {
 
   lenv *e = lenv_new();
   lenv_add_builtins(e);
+
+  int err;
+
+  if ((err = init_stdlib(e))) {
+    return err;
+  }
 
   /* Supplied with list of files */
   if (argc >= 2) {
