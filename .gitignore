@@ -3,3 +3,6 @@ build/
 
 # Binaries
 bin/
+
+# Temporary files
+temp/
