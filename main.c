@@ -1047,7 +1047,21 @@ lval *builtin_load(lenv *e, lval *a) {
 }
 
 lval *builtin_print(lenv *e, lval *a) {
-
+#if __EMSCRIPTEN__
+  char *out = malloc(sizeof(char));
+  out[0] = '\0';
+  /* Concat each argument followed by a space */
+  for (int i = 0; i < a->count; i++) {
+    char *str = lval_to_str(a->cell[i]);
+    out = realloc(out, sizeof(char) * (strlen(out) + strlen(str) + 2));
+    strcat(out, str);
+    strcat(out, " ");
+    free(str);
+  }
+  lval *x = lval_str(out);
+  free(out);
+  return x;
+#else
   /* Print each argument followed by a space */
   for (int i = 0; i < a->count; i++) {
     lval_print(a->cell[i]);
@@ -1059,6 +1073,7 @@ lval *builtin_print(lenv *e, lval *a) {
   lval_del(a);
 
   return lval_sexpr();
+#endif
 }
 
 lval *builtin_error(lenv *e, lval *a) {
@@ -1349,7 +1364,9 @@ long mlisp_interpret(char *input) {
     mpc_ast_delete(r.output);
   } else {
     /* Otherwise Print the Error */
-    mpc_err_print(r.error);
+    char *error = mpc_err_string(r.error);
+    out = malloc(sizeof(char) * (strlen(error) + 1));
+    sprintf(out, "%s", error);
     mpc_err_delete(r.error);
   }
   return (long)out;
