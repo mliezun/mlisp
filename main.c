@@ -50,6 +50,7 @@ struct lval;
 struct lenv;
 typedef struct lval lval;
 typedef struct lenv lenv;
+char *lval_to_str(lval *v);
 void lval_print(lval *v);
 lval *lval_eval(lenv *e, lval *v);
 void lenv_del(lenv *e);
@@ -484,66 +485,87 @@ lval *lval_read(mpc_ast_t *t) {
   return x;
 }
 
-void lval_expr_print(lval *v, char open, char close) {
-  putchar(open);
+char *lval_expr_to_str(lval *v, char open, char close) {
+  char *out = malloc(sizeof(char) * 2);
+  out[0] = open;
+  out[1] = '\0';
   for (int i = 0; i < v->count; i++) {
 
-    /* Print Value contained within */
-    lval_print(v->cell[i]);
+    char *str = lval_to_str(v->cell[i]);
+
+    out = realloc(out, sizeof(char) * (strlen(out) + strlen(str) + 3));
+
+    strcat(out, str);
 
     /* Don't print trailing space if last element */
     if (i != (v->count - 1)) {
-      putchar(' ');
+      strcat(out, " ");
     }
   }
-  putchar(close);
+  char closing[] = {close, '\0'};
+  strcat(out, closing);
+  return out;
 }
 
-void lval_print_str(lval *v) {
+char *lval_escape_str(lval *v) {
   /* Make a Copy of the string */
   char *escaped = malloc(strlen(v->str) + 1);
   strcpy(escaped, v->str);
   /* Pass it through the escape function */
   escaped = mpcf_escape(escaped);
-  /* Print it between " characters */
-  printf("\"%s\"", escaped);
-  /* free the copied string */
-  free(escaped);
+  return escaped;
+}
+
+char *lval_to_str(lval *v) {
+  char *out;
+  switch (v->type) {
+  case LVAL_NUM: {
+    out = malloc(sizeof(int) * 8 + 1);
+    sprintf(out, "%li", v->num);
+    return out;
+  }
+  case LVAL_ERR: {
+    char *error = "Error: %s";
+    out = malloc(sizeof(char) * (strlen(error) + strlen(v->err) + 1));
+    sprintf(out, error, v->err);
+    return out;
+  }
+  case LVAL_SYM: {
+    out = malloc(sizeof(char) * (strlen(v->sym) + 1));
+    sprintf(out, "%s", v->sym);
+    return out;
+  }
+  case LVAL_STR:
+    return lval_escape_str(v);
+  case LVAL_SEXPR:
+    return lval_expr_to_str(v, '(', ')');
+  case LVAL_QEXPR:
+    return lval_expr_to_str(v, '{', '}');
+  case LVAL_FUN:
+    if (v->builtin) {
+      char *builtin = "<builtin>";
+      out = malloc(sizeof(char) * (strlen(builtin) + 1));
+      sprintf(out, "%s", builtin);
+    } else {
+      char *format = "(\\ %s %s)";
+      char *formals = lval_to_str(v->formals);
+      char *body = lval_to_str(v->body);
+      out = malloc(sizeof(char) *
+                   (strlen(format) + strlen(formals) + strlen(body) + 1));
+      sprintf(out, format, formals, body);
+      free(formals);
+      free(body);
+    }
+    return out;
+  }
+  return NULL;
 }
 
 /* Print an "lval" */
 void lval_print(lval *v) {
-  switch (v->type) {
-  case LVAL_NUM:
-    printf("%li", v->num);
-    break;
-  case LVAL_ERR:
-    printf("Error: %s", v->err);
-    break;
-  case LVAL_SYM:
-    printf("%s", v->sym);
-    break;
-  case LVAL_STR:
-    lval_print_str(v);
-    break;
-  case LVAL_SEXPR:
-    lval_expr_print(v, '(', ')');
-    break;
-  case LVAL_QEXPR:
-    lval_expr_print(v, '{', '}');
-    break;
-  case LVAL_FUN:
-    if (v->builtin) {
-      printf("<builtin>");
-    } else {
-      printf("(\\ ");
-      lval_print(v->formals);
-      putchar(' ');
-      lval_print(v->body);
-      putchar(')');
-    }
-    break;
-  }
+  char *str = lval_to_str(v);
+  printf("%s", str);
+  free(str);
 }
 
 /* Print an "lval" followed by a newline */
@@ -1316,13 +1338,13 @@ void mlisp_cleanup() {
 
 #if __EMSCRIPTEN__
 EMSCRIPTEN_KEEPALIVE
-#endif
 long mlisp_interpret(char *input) {
+  char *out = NULL;
   /* Attempt to Parse the user Input */
   mpc_result_t r;
   if (mpc_parse("<stdin>", input, Mlisp, &r)) {
     lval *x = lval_eval(globalEnv, lval_read(r.output));
-    lval_println(x);
+    out = lval_to_str(x);
     lval_del(x);
     mpc_ast_delete(r.output);
   } else {
@@ -1330,14 +1352,9 @@ long mlisp_interpret(char *input) {
     mpc_err_print(r.error);
     mpc_err_delete(r.error);
   }
-  char *str = malloc(sizeof(char) * 3);
-  str[0] = 'o';
-  str[1] = 'k';
-  str[2] = '\0';
-  return (long)str;
+  return (long)out;
 }
 
-#if __EMSCRIPTEN__
 EMSCRIPTEN_KEEPALIVE
 char *mlisp_str(long ptr) { return (char *)((void *)ptr); }
 
