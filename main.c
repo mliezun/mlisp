@@ -4,20 +4,7 @@
 
 #ifdef __EMSCRIPTEN__
 
-static char buffer[2048];
-
-/* Fake readline function */
-char *readline(char *prompt) {
-  fputs(prompt, stdout);
-  fgets(buffer, 2048, stdin);
-  char *cpy = malloc(strlen(buffer) + 1);
-  strcpy(cpy, buffer);
-  cpy[strlen(cpy) - 1] = '\0';
-  return cpy;
-}
-
-/* Fake add_history function */
-void add_history(char *unused) {}
+#include <emscripten/emscripten.h>
 
 #elif _WIN32
 /* If we are compiling on Windows compile these functions */
@@ -75,6 +62,8 @@ mpc_parser_t *Sexpr;
 mpc_parser_t *Qexpr;
 mpc_parser_t *Expr;
 mpc_parser_t *Mlisp;
+int mlisp_init();
+lenv *globalEnv;
 
 /* Enumeration of Possible lval Types */
 enum {
@@ -1256,30 +1245,6 @@ void lenv_add_builtins(lenv *e) {
   lenv_add_builtin(e, "print", builtin_print);
 }
 
-void repl(lenv *e) {
-  while (1) {
-
-    /* Now in either case readline will be correctly defined */
-    char *input = readline("mlisp> ");
-    add_history(input);
-
-    /* Attempt to Parse the user Input */
-    mpc_result_t r;
-    if (mpc_parse("<stdin>", input, Mlisp, &r)) {
-      lval *x = lval_eval(e, lval_read(r.output));
-      lval_println(x);
-      lval_del(x);
-      mpc_ast_delete(r.output);
-    } else {
-      /* Otherwise Print the Error */
-      mpc_err_print(r.error);
-      mpc_err_delete(r.error);
-    }
-
-    free(input);
-  }
-}
-
 extern const int stdlib_mlisp_size;
 extern const char stdlib_mlisp[];
 
@@ -1299,7 +1264,10 @@ int init_stdlib(lenv *e) {
   return 0;
 }
 
-int main(int argc, char **argv) {
+#if __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int mlisp_init() {
   Number = mpc_new("number");
   Symbol = mpc_new("symbol");
   String = mpc_new("string");
@@ -1328,6 +1296,82 @@ int main(int argc, char **argv) {
   int err;
 
   if ((err = init_stdlib(e))) {
+    printf("Error: Could not initialize stdlib!\n");
+    return err;
+  }
+
+  globalEnv = e;
+
+  return 0;
+}
+
+#if __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+void mlisp_cleanup() {
+  lenv_del(globalEnv);
+
+  mpc_cleanup(8, Number, Symbol, String, Comment, Sexpr, Qexpr, Expr, Mlisp);
+}
+
+#if __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+long mlisp_interpret(char *input) {
+  /* Attempt to Parse the user Input */
+  mpc_result_t r;
+  if (mpc_parse("<stdin>", input, Mlisp, &r)) {
+    lval *x = lval_eval(globalEnv, lval_read(r.output));
+    lval_println(x);
+    lval_del(x);
+    mpc_ast_delete(r.output);
+  } else {
+    /* Otherwise Print the Error */
+    mpc_err_print(r.error);
+    mpc_err_delete(r.error);
+  }
+  char *str = malloc(sizeof(char) * 3);
+  str[0] = 'o';
+  str[1] = 'k';
+  str[2] = '\0';
+  return (long)str;
+}
+
+#if __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+char *mlisp_str(long ptr) { return (char *)((void *)ptr); }
+
+EMSCRIPTEN_KEEPALIVE
+void mlisp_free(long ptr) { free((void *)ptr); }
+#endif
+
+#if !__EMSCRIPTEN__
+void repl() {
+  while (1) {
+    /* Now in either case readline will be correctly defined */
+    char *input = readline("mlisp> ");
+    add_history(input);
+
+    /* Attempt to Parse the user Input */
+    mpc_result_t r;
+    if (mpc_parse("<stdin>", input, Mlisp, &r)) {
+      lval *x = lval_eval(globalEnv, lval_read(r.output));
+      lval_println(x);
+      lval_del(x);
+      mpc_ast_delete(r.output);
+    } else {
+      /* Otherwise Print the Error */
+      mpc_err_print(r.error);
+      mpc_err_delete(r.error);
+    }
+
+    free(input);
+  }
+}
+
+int main(int argc, char **argv) {
+  int err;
+  if ((err = mlisp_init())) {
     return err;
   }
 
@@ -1341,7 +1385,7 @@ int main(int argc, char **argv) {
       lval *args = lval_add(lval_sexpr(), lval_str(argv[i]));
 
       /* Pass to builtin load and get the result */
-      lval *x = builtin_load(e, args);
+      lval *x = builtin_load(globalEnv, args);
 
       /* If the result is an error be sure to print it */
       if (x->type == LVAL_ERR) {
@@ -1352,12 +1396,11 @@ int main(int argc, char **argv) {
   } else {
     puts("mlisp Version 0.0.0.0.1");
     puts("Press Ctrl+c to Exit\n");
-    repl(e);
+    repl();
   }
 
-  lenv_del(e);
-
-  mpc_cleanup(8, Number, Symbol, String, Comment, Sexpr, Qexpr, Expr, Mlisp);
+  mlisp_cleanup();
 
   return 0;
 }
+#endif
