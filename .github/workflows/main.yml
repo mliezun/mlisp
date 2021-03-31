@@ -10,6 +10,7 @@ on:
 
   workflow_dispatch:
 
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,7 +20,9 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Build Wasm Module
-        run: make clean && make mlisp_wasm
+        with:
+          shell: bash
+          run: make clean && make mlisp_wasm
 
       - name: Create Release
         id: create_release
