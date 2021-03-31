@@ -22,7 +22,9 @@ jobs:
 
       - name: Build Wasm Module
         shell: bash
-        run: make clean && make mlisp_wasm
+        run: |
+            source "/opt/emsdk/emsdk_env.sh"
+            make clean && make mlisp_wasm
 
       - name: Create Release
         id: create_release
