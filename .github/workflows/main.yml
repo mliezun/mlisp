@@ -18,8 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Build Linux & Wasm Module
-        run: make clean && make && make mlisp_wasm
+      - name: Build Wasm Module
+        run: make clean && make mlisp_wasm
 
       - name: Create Release
         id: create_release
