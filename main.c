@@ -1352,9 +1352,14 @@ void mlisp_cleanup() {
 }
 
 #if __EMSCRIPTEN__
+char *out = NULL;
+
 EMSCRIPTEN_KEEPALIVE
-long mlisp_interpret(char *input) {
-  char *out = NULL;
+char *mlisp_interpret(char *input) {
+  if (out != NULL) {
+    free(out);
+    out = NULL;
+  }
   /* Attempt to Parse the user Input */
   mpc_result_t r;
   if (mpc_parse("<stdin>", input, Mlisp, &r)) {
@@ -1369,14 +1374,8 @@ long mlisp_interpret(char *input) {
     sprintf(out, "%s", error);
     mpc_err_delete(r.error);
   }
-  return (long)out;
+  return out;
 }
-
-EMSCRIPTEN_KEEPALIVE
-char *mlisp_str(long ptr) { return (char *)((void *)ptr); }
-
-EMSCRIPTEN_KEEPALIVE
-void mlisp_free(long ptr) { free((void *)ptr); }
 #endif
 
 #if !__EMSCRIPTEN__
