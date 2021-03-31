@@ -12,7 +12,8 @@ on:
 
 jobs:
   build:
-    runs-on: mliezun/generic-build-and-deploy
+    runs-on: ubuntu-latest
+    container: mliezun/generic-build-and-deploy
 
     steps:
       - uses: actions/checkout@v2
