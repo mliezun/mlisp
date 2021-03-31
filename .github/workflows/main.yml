@@ -1,0 +1,35 @@
+name: Build & Release
+
+# Controls when the action will run. 
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: mliezun/generic-build-and-deploy
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build Linux & Wasm Module
+        run: make clean && make && make mlisp_wasm
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            Automated Release
+          draft: false
+          prerelease: false
