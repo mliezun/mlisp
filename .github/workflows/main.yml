@@ -14,13 +14,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: mliezun/generic-build-and-deploy
 
     steps:
       - uses: actions/checkout@v2
 
       - name: Build Wasm Module
+        uses: addnab/docker-run-action@v3
         with:
+          image: mliezun/generic-build-and-deploy:latest
           shell: bash
           run: make clean && make mlisp_wasm
 
