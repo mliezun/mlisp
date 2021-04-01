@@ -1343,15 +1343,6 @@ int mlisp_init() {
 }
 
 #if __EMSCRIPTEN__
-EMSCRIPTEN_KEEPALIVE
-#endif
-void mlisp_cleanup() {
-  lenv_del(globalEnv);
-
-  mpc_cleanup(8, Number, Symbol, String, Comment, Sexpr, Qexpr, Expr, Mlisp);
-}
-
-#if __EMSCRIPTEN__
 char *out = NULL;
 
 EMSCRIPTEN_KEEPALIVE
@@ -1377,6 +1368,22 @@ char *mlisp_interpret(char *input) {
   return out;
 }
 #endif
+
+#if __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+void mlisp_cleanup() {
+  lenv_del(globalEnv);
+
+  mpc_cleanup(8, Number, Symbol, String, Comment, Sexpr, Qexpr, Expr, Mlisp);
+
+  #if __EMSCRIPTEN__
+  if (out != NULL) {
+    free(out);
+    out = NULL;
+  }
+  #endif
+}
 
 #if !__EMSCRIPTEN__
 void repl() {
